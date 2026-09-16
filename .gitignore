@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pth
+*.pt
+*.zip
+*.log
+*.part
+.claude/
+ecoset_resnet50_v2/
+checkpoints/

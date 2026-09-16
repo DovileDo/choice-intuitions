@@ -1,0 +1,41 @@
+\section{Hyperparameter Details}
+\label{app:hparams}
+
+Table~\ref{tab:searched_hparams} lists the hyperparameters optimised via Bayesian search, and Table~\ref{tab:fixed_hparams} lists those held fixed across all experiments. Data augmentation consisted of random horizontal and vertical flips, random $90\degree$ rotations, and random scaling ($0.9$--$1.1\times$). Because both NCT-CRC-HE-100K and CRC-VAL-HE-7K are Macenko-normalised~\cite{macenko2009}, we did not apply colour augmentation by default; instead, we included light HED-space stain perturbation~\cite{tellez2019} as a searched boolean, letting the optimisation decide whether it improves performance given the cross-institutional gap between training (NCT/UMM) and test (TCGA) slides.
+
+\begin{table}[h]
+\centering
+\caption{Searched hyperparameters (Optuna TPE, 60 trials).}
+\label{tab:searched_hparams}
+\begin{tabular}{lll}
+\toprule
+Hyperparameter & Range & Scale \\
+\midrule
+Backbone learning rate & $[10^{-5},\, 10^{-3}]$ & log \\
+Head learning rate & $[10^{-4},\, 10^{-2}]$ & log \\
+Weight decay & $[10^{-5},\, 10^{-2}]$ & log \\
+Dropout & $\{0.0,\, 0.2,\, 0.5\}$ & categorical \\
+Batch size & $\{16,\, 32,\, 64\}$ & categorical \\
+Maximum epochs & $\{20,\, 30,\, 50\}$ & categorical \\
+Label smoothing & $[0.0,\, 0.2]$ & uniform \\
+Stain augmentation & $\{\text{true},\, \text{false}\}$ & boolean \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Fixed hyperparameters.}
+\label{tab:fixed_hparams}
+\begin{tabular}{ll}
+\toprule
+Hyperparameter & Value \\
+\midrule
+Optimiser & AdamW~\cite{loshchilov2019} \\
+Learning rate schedule & Cosine annealing~\cite{loshchilov2017} \\
+Warmup & 2 epochs, linear~\cite{goyal2017} \\
+Early stopping patience & 7 epochs (on validation macro AUC) \\
+Input normalisation & ImageNet mean and standard deviation \\
+\bottomrule
+\end{tabular}
+\end{table}
