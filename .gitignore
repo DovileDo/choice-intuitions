@@ -8,3 +8,7 @@ __pycache__/
 .claude/
 ecoset_resnet50_v2/
 checkpoints/
+source/ecoset/eval_ecoset_resnet50.py
+source/ecoset/pilot_train.py
+source/radimagenet/
+source/pathology/
