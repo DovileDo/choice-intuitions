@@ -134,8 +134,7 @@ class CheXpertDataset(Dataset):
 def get_transforms(train=True):
     if train:
         return transforms.Compose([
-            transforms.Resize(256),
-            transforms.RandomCrop(224),
+            transforms.Resize((224, 224)),
             transforms.RandomHorizontalFlip(),
             transforms.RandomAffine(degrees=10, scale=(0.9, 1.1),
                                     translate=(0.05, 0.05)),
@@ -144,8 +143,7 @@ def get_transforms(train=True):
         ])
     else:
         return transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
         ])
