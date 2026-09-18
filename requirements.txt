@@ -1,6 +1,8 @@
-torch>=2.0
-torchvision>=0.15
-numpy
-tqdm
-requests
-remotezip
+# Tested with Python 3.14 on an NVIDIA GB10 (CUDA 13.0).
+torch==2.14.0
+torchvision==0.29.0
+numpy==2.5.2
+pillow==12.3.0
+scikit-learn==1.9.1
+scikit-image==0.26.0
+optuna==5.0.0

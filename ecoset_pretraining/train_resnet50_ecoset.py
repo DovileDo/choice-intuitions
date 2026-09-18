@@ -21,6 +21,7 @@ import math
 import os
 import random
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -43,7 +44,8 @@ def parse_args():
     p.add_argument("--train-dir", type=str, required=True)
     p.add_argument("--val-dir", type=str, required=True)
     p.add_argument("--test-dir", type=str, default=None)
-    p.add_argument("--output-dir", type=str, default="./ecoset_resnet50_v2")
+    p.add_argument("--output-dir", type=str,
+                   default=str(Path(__file__).resolve().parents[1] / "runs" / "ecoset_pretraining"))
     p.add_argument("--epochs", type=int, default=600)
     p.add_argument("--batch-size", type=int, default=256,
                    help="Per-GPU batch size. LR auto-scales from 0.5 @ batch 1024")

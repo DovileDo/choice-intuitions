@@ -13,7 +13,7 @@ conda activate "$ENV_NAME" 2>/dev/null || source activate "$ENV_NAME"
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # Other dependencies
-pip install numpy tqdm requests remotezip
+pip install numpy
 
 echo ""
 echo "Environment '$ENV_NAME' ready."

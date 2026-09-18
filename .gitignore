@@ -1,14 +1,13 @@
 __pycache__/
 *.pyc
+
+# Outputs, logs, weights and data stay out of the repository
+runs/
 *.pth
 *.pt
+*.db
 *.zip
 *.log
 *.part
+
 .claude/
-ecoset_resnet50_v2/
-checkpoints/
-source/ecoset/eval_ecoset_resnet50.py
-source/ecoset/pilot_train.py
-source/radimagenet/
-source/pathology/

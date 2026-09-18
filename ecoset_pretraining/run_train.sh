@@ -6,9 +6,11 @@
 #SBATCH --time=24:00:00
 #SBATCH --output=ecoset_train_%j.log
 
-# === Edit these paths ===
-DATA_DIR="${ECOSET_DATA_DIR:-/path/to/ecoset}"
-OUTPUT_DIR="${ECOSET_OUTPUT_DIR:-./ecoset_resnet50_v2}"
+# Submit from the repository root: sbatch ecoset_pretraining/run_train.sh
+cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")/..}" || exit 1
+
+DATA_DIR="${ECOSET_DATA_DIR:-$HOME/data/ecoset/full_dataset}"
+OUTPUT_DIR="${ECOSET_OUTPUT_DIR:-runs/ecoset_pretraining}"
 
 # === Activate env ===
 source activate ecoset 2>/dev/null || conda activate ecoset
@@ -22,7 +24,7 @@ if [ ! -d "$DATA_DIR/train" ] && [ -f "$DATA_DIR/ecoset.zip" ]; then
 fi
 
 # === Train (resumes automatically if checkpoint exists) ===
-python3 "$(dirname "$0")/train_resnet50_ecoset.py" \
+python3 ecoset_pretraining/train_resnet50_ecoset.py \
     --train-dir "$DATA_DIR/train" \
     --val-dir "$DATA_DIR/val" \
     --test-dir "$DATA_DIR/test" \

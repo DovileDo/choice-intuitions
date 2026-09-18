@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intuitions"
+version = "0.1.0"
+description = "Fine-tuning benchmark of ImageNet, RadImageNet and Ecoset ResNet-50 source models on medical imaging targets"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.3",
+    "torchvision>=0.18",
+    "numpy",
+    "pillow",
+    "scikit-learn",
+    "scikit-image>=0.19",
+    "optuna>=3.0",
+]
+
+[tool.setuptools]
+packages = ["intuitions", "intuitions.targets"]
