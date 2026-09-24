@@ -15,6 +15,10 @@
 # CRC runs: 5-10 h per pretrained source and about three times that for the randomly
 # initialised one, which searches over 50-150 epochs against 20-50.
 #
+# The first job also builds the benchmark pool -- the label CSVs and the per-seed sampling
+# index -- under $INTUITIONS_DATA_DIR/CheXpert, reading the images in place from the shared
+# copy at $CHEXPERT_DIR. Later jobs reuse it.
+#
 # An interrupted job resumes: submit the same command again. Finished trials are in
 # optuna_study.db and finished evaluation seeds in seeds/seed_<N>.json, and both are
 # skipped on a second run.
@@ -48,6 +52,28 @@ cd "$REPO" || exit 1
 # intuitions/paths.py assumes. Set them at submission if they live elsewhere.
 export INTUITIONS_DATA_DIR="${INTUITIONS_DATA_DIR:-$HOME/data}"
 export INTUITIONS_MODELS_DIR="${INTUITIONS_MODELS_DIR:-$HOME/pretrained_models}"
+
+# The benchmark pool: the official label CSVs, and every listed image resolved to the
+# batch folder that holds it, so the images are read in place and nothing is copied.
+# Built once and reused by every later job; delete the CSV to rebuild it.
+CHEXPERT="${CHEXPERT_DIR:-/home/data_shares/purrlab/CheXpert}"
+BENCHMARK_CSV="$INTUITIONS_DATA_DIR/CheXpert/chexpert_benchmark.csv"
+if [ ! -f "$BENCHMARK_CSV" ]; then
+    echo "building $BENCHMARK_CSV"
+    mkdir -p "$INTUITIONS_DATA_DIR/CheXpert" || exit 1
+    # train.csv ships with the first batch, the expert-labelled val and test sets with CheXlocalize.
+    for csv in "$CHEXPERT/chexpertchestxrays-u20210408/CheXpert-v1.0 batch 1 (validate & csv)/train.csv" \
+               "$CHEXPERT/chexlocalize/CheXpert/val_labels.csv" \
+               "$CHEXPERT/chexlocalize/CheXpert/test_labels.csv"; do
+        [ -f "$INTUITIONS_DATA_DIR/CheXpert/$(basename "$csv")" ] && continue
+        cp "$csv" "$INTUITIONS_DATA_DIR/CheXpert/" || { echo "missing $csv" >&2; exit 1; }
+    done
+    python -m intuitions.prepare_chexpert --image-roots \
+        "$CHEXPERT/chexpertchestxrays-u20210408/CheXpert-v1.0 batch 2 (train 1)" \
+        "$CHEXPERT/chexpertchestxrays-u20210408/CheXpert-v1.0 batch 3 (train 2)" \
+        "$CHEXPERT/chexpertchestxrays-u20210408/CheXpert-v1.0 batch 4 (train 3)" \
+        "$CHEXPERT/chexlocalize/CheXpert" || exit 1
+fi
 
 # The Optuna study is a SQLite file written after every trial, so it runs on node-local
 # disk and is copied back after each source rather than living on shared storage.
