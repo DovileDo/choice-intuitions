@@ -1,14 +1,17 @@
 #!/bin/bash
 #SBATCH --job-name=chexpert
 #SBATCH --partition=acltr
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=7-00:00:00
 #SBATCH --output=job.%j.out
 
-#   sbatch --gres=gpu:v100:1 scripts/run_chexpert.sh
+#   sbatch scripts/run_chexpert.sh
 #   sbatch scripts/run_chexpert.sh imagenet radimagenet     # a subset, in that order
+#
+# The timings below are for a V100, which the header asks for; pass --gres at submission
+# to override it.
 #
 # Every source on CS-xray, one after another in a single job. Results land in
 # runs/benchmark/chexpert/<source>/. Two to three days for all five, extrapolated from the
