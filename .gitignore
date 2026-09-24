@@ -9,3 +9,6 @@ runs/
 *.zip
 *.log
 *.part
+
+# The paper text is kept out of the repository
+paper/
