@@ -61,10 +61,14 @@ def index_patients(image_roots):
     """patient id -> directory holding its studies, searched a few levels down in each root."""
     index = {}
     for root in image_roots:
+        # Stop at the first depth that holds patients: descending further would walk every
+        # study and image below them, which costs minutes per root on a shared filesystem.
         for depth in ("patient*", "*/patient*", "*/*/patient*", "*/*/*/patient*"):
-            for patient_dir in root.glob(depth):
-                if patient_dir.is_dir():
-                    index.setdefault(patient_dir.name, patient_dir)
+            found = [d for d in root.glob(depth) if d.is_dir()]
+            for patient_dir in found:
+                index.setdefault(patient_dir.name, patient_dir)
+            if found:
+                break
     if image_roots:
         print(f"indexed {len(index)} patients under {len(image_roots)} image root(s)")
     return index
