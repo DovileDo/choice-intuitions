@@ -4,9 +4,10 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+import optuna
 import torch
 
-from intuitions.finetune import run_final_eval
+from intuitions.finetune import regime, run_final_eval, suggest_hparams
 from intuitions.targets.crc import CLASSES, CRC, DATA_ROOT
 from tests.test_targets import HAS_CRC
 
@@ -58,6 +59,28 @@ class TestFinalEval(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 run_final_eval(target, "ecoset_dvd_s", out_dir, {**HPARAMS, "head_lr": 1e-2}, device, seeds=(7,))
             self.assertFalse((out_dir / "seeds" / "seed_7.json").exists())
+
+
+class TestSearchSpace(unittest.TestCase):
+    def distributions(self, source):
+        trial = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=0)).ask()
+        suggest_hparams(trial, TinyCRC(), source)
+        return trial.distributions
+
+    def test_pretrained_sources_keep_the_fine_tuning_space(self):
+        for source in ("imagenet", "radimagenet", "ecoset_baseline", "ecoset_dvd_s"):
+            d = self.distributions(source)
+            self.assertEqual((d["backbone_lr"].low, d["backbone_lr"].high), (1e-5, 1e-3))
+            self.assertEqual((d["weight_decay"].low, d["weight_decay"].high), (1e-5, 1e-2))
+            self.assertEqual(list(d["max_epochs"].choices), [20, 30, 50])
+            self.assertEqual((regime(source)["early_stop_patience"], regime(source)["warmup_epochs"]), (7, 2))
+
+    def test_scratch_gets_higher_learning_rates_and_longer_schedules(self):
+        d = self.distributions("scratch")
+        self.assertEqual((d["backbone_lr"].low, d["backbone_lr"].high), (1e-4, 1e-2))
+        self.assertEqual((d["weight_decay"].low, d["weight_decay"].high), (1e-4, 1e-1))
+        self.assertEqual(list(d["max_epochs"].choices), [50, 100, 150])
+        self.assertEqual((regime("scratch")["early_stop_patience"], regime("scratch")["warmup_epochs"]), (15, 5))
 
 
 class TestSingleFileResultsImport(unittest.TestCase):

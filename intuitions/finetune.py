@@ -2,7 +2,8 @@
 Shared fine-tuning protocol.
 
 Phase 1: Optuna TPE search (60 trials); each trial trains on every search seed
-(0-4) and is scored by the mean best validation macro AUC.
+(0-4) and is scored by the mean best validation macro AUC. The randomly
+initialised baseline gets its own search space and schedule (see REGIMES).
 Phase 2: retrain with the best hyperparameters on held-out eval seeds (5-9)
 and report test metrics as mean +/- std. Each eval seed is saved on its own
 (metrics and per-image test predictions), so more seeds can be added later and
@@ -19,7 +20,7 @@ import optuna
 import torch
 from torch.utils.data import DataLoader
 
-from intuitions.source_models import load_source_model
+from intuitions.source_models import is_pretrained, load_source_model
 from intuitions.utils import set_seed
 
 log = logging.getLogger(__name__)
@@ -27,9 +28,20 @@ log = logging.getLogger(__name__)
 SEARCH_SEEDS = (0, 1, 2, 3, 4)
 EVAL_SEEDS = (5, 6, 7, 8, 9)
 N_TRIALS = 60
-EARLY_STOP_PATIENCE = 7
-WARMUP_EPOCHS = 2
 NUM_WORKERS = 4
+
+# Training from random initialisation needs higher learning rates and longer
+# schedules than fine-tuning (He et al. 2019, "Rethinking ImageNet Pre-training").
+REGIMES = {
+    "pretrained": {"backbone_lr": (1e-5, 1e-3), "head_lr": (1e-4, 1e-2), "weight_decay": (1e-5, 1e-2),
+                   "max_epochs": [20, 30, 50], "early_stop_patience": 7, "warmup_epochs": 2},
+    "scratch": {"backbone_lr": (1e-4, 1e-2), "head_lr": (1e-4, 1e-2), "weight_decay": (1e-4, 1e-1),
+                "max_epochs": [50, 100, 150], "early_stop_patience": 15, "warmup_epochs": 5},
+}
+
+
+def regime(source):
+    return REGIMES["pretrained" if is_pretrained(source) else "scratch"]
 
 
 @dataclass
@@ -41,14 +53,15 @@ class RunResult:
     test_probs: Optional[np.ndarray] = None
 
 
-def suggest_hparams(trial, target):
+def suggest_hparams(trial, target, source):
+    space = regime(source)
     hparams = {
-        "backbone_lr": trial.suggest_float("backbone_lr", 1e-5, 1e-3, log=True),
-        "head_lr": trial.suggest_float("head_lr", 1e-4, 1e-2, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 1e-5, 1e-2, log=True),
+        "backbone_lr": trial.suggest_float("backbone_lr", *space["backbone_lr"], log=True),
+        "head_lr": trial.suggest_float("head_lr", *space["head_lr"], log=True),
+        "weight_decay": trial.suggest_float("weight_decay", *space["weight_decay"], log=True),
         "dropout": trial.suggest_categorical("dropout", [0.0, 0.2, 0.5]),
         "batch_size": trial.suggest_categorical("batch_size", [16, 32, 64]),
-        "max_epochs": trial.suggest_categorical("max_epochs", [20, 30, 50]),
+        "max_epochs": trial.suggest_categorical("max_epochs", space["max_epochs"]),
         "label_smoothing": trial.suggest_float("label_smoothing", 0.0, 0.2),
     }
     hparams.update(target.suggest_extra_hparams(trial))
@@ -65,10 +78,10 @@ def get_optimizer(model, backbone_lr, head_lr, weight_decay):
     ], weight_decay=weight_decay)
 
 
-def get_scheduler(optimizer, max_epochs):
-    warmup = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.01, total_iters=WARMUP_EPOCHS)
-    cosine = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(max_epochs - WARMUP_EPOCHS, 1))
-    return torch.optim.lr_scheduler.SequentialLR(optimizer, [warmup, cosine], milestones=[WARMUP_EPOCHS])
+def get_scheduler(optimizer, max_epochs, warmup_epochs):
+    warmup = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.01, total_iters=warmup_epochs)
+    cosine = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(max_epochs - warmup_epochs, 1))
+    return torch.optim.lr_scheduler.SequentialLR(optimizer, [warmup, cosine], milestones=[warmup_epochs])
 
 
 def train_one_epoch(model, loader, optimizer, criterion, scaler, device):
@@ -101,9 +114,10 @@ def train_model(target, source, train_items, val_items, hparams, device, test_it
     train_loader = _loader(target.make_dataset(train_items, hparams, train=True), bs, shuffle=True)
     val_loader = _loader(target.make_dataset(val_items, hparams, train=False), bs, shuffle=False)
 
+    fixed = regime(source)
     model = load_source_model(source, target.num_outputs, dropout=hparams["dropout"]).to(device)
     optimizer = get_optimizer(model, hparams["backbone_lr"], hparams["head_lr"], hparams["weight_decay"])
-    scheduler = get_scheduler(optimizer, hparams["max_epochs"])
+    scheduler = get_scheduler(optimizer, hparams["max_epochs"], fixed["warmup_epochs"])
     criterion = target.make_criterion(hparams)
     scaler = torch.amp.GradScaler()
 
@@ -123,7 +137,7 @@ def train_model(target, source, train_items, val_items, hparams, device, test_it
             patience = 0
         else:
             patience += 1
-            if patience >= EARLY_STOP_PATIENCE:
+            if patience >= fixed["early_stop_patience"]:
                 log.debug("early stop at epoch %d", epoch)
                 break
 
@@ -137,7 +151,7 @@ def train_model(target, source, train_items, val_items, hparams, device, test_it
 
 
 def _objective(trial, target, source, device, seeds):
-    hparams = suggest_hparams(trial, target)
+    hparams = suggest_hparams(trial, target, source)
     log.info("trial %d: %s", trial.number, hparams)
     val_aucs = []
     for step, seed in enumerate(seeds):

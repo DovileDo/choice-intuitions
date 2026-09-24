@@ -8,12 +8,18 @@ source-dataset choice with empirical outcomes:
 - **CS-tissue (`crc`)**: 9-class colorectal tissue classification. 250 patches/class from
   NCT-CRC-HE-100K for train/val (80/20); test is CRC-VAL-HE-7K minus 250 random patches
   per class (4,930 patches), fixed for every seed.
-- **CS-xray (`chexpert`)**: 8-pathology multi-label chest X-ray classification on 834 CheXpert
-  val+test images (662 patients), patient-level splits.
+- **CS-xray (`chexpert`)**: 8-pathology multi-label chest X-ray classification. Per seed,
+  label-balanced samples from the official splits: 40 images/label from train (320 images,
+  those with an uncertain target label excluded) and 10 images/label from val (80 images);
+  test is the official test split reduced by whole patients to 434 images, fixed for every
+  seed. Only images with ≥1 positive among the 8 labels are used; 320+80+434 = 834, the
+  case study's subset size.
 
 Protocol (`intuitions/finetune.py`, written up in `paper/`): Optuna TPE search (60 trials),
 each trial scored by mean validation macro AUC over data seeds 0-4; the best configuration is
-retrained on held-out seeds 5-9 and test metrics are reported as mean ± std.
+retrained on held-out seeds 5-9 and test metrics are reported as mean ± std. The `scratch`
+baseline searches higher learning rates and weight decay and longer schedules, with longer
+warmup and early-stopping patience (`REGIMES` in `finetune.py`).
 
 ## Layout
 
@@ -48,7 +54,8 @@ Expected data layout:
 ```
 ~/data/pathology/train/<CLASS>/*.tif     NCT-CRC-HE-100K (ADI BACK DEB LYM MUC MUS NORM STR TUM)
 ~/data/pathology/test/<CLASS>/*.tif      CRC-VAL-HE-7K
-~/data/CheXpert/{val,test}/, {val,test}_labels.csv
+~/data/CheXpert/{train,val,test}/        official splits (train/ may hold only the sampled images)
+~/data/CheXpert/train.csv, {val,test}_labels.csv
 ~/data/ecoset/test_data/<id>_<class>/    Ecoset test split (verify_sources only)
 ~/data/radiology_ai/                     RadImageNet + RadiologyAI_{train,val,test}.csv (probe only)
 ```
@@ -79,13 +86,14 @@ pip install -r requirements.txt
 
 ```bash
 python -m intuitions.prepare_chexpert        # once: writes ~/data/CheXpert/chexpert_benchmark.csv
+python -m intuitions.prepare_chexpert --needed-train-images needed.txt   # training images seeds 0-14 sample
 python -m intuitions.verify_sources          # optional: confirm all source models load and preprocess correctly
 
 python -m intuitions.benchmark --target crc --source imagenet                 # search + final eval
 python -m intuitions.benchmark --target crc --source imagenet --phase search   # search only
 python -m intuitions.benchmark --target crc --source imagenet --phase eval     # final eval from best_hparams.json
 
-# all sources x targets (~4 days on one GB10 GPU before pruning)
+# all sources x targets (~4-7 days on one GB10 GPU; scratch takes the longest)
 for target in crc chexpert; do
   for source in imagenet radimagenet ecoset_baseline ecoset_dvd_s scratch; do
     python -m intuitions.benchmark --target "$target" --source "$source"

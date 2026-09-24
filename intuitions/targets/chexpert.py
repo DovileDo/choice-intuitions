@@ -1,11 +1,19 @@
 """
 CS-xray: 8-pathology multi-label chest X-ray classification (CheXpert).
 
-Pool: official CheXpert val + test sets, restricted to images with at least one
-positive among the 8 pathologies (834 CXRs, 662 patients), built by
-`python -m intuitions.prepare_chexpert`. Per data seed, whole patients are
-assigned to train+val until it holds >= 250 images and the rest form the test
-set; train+val patients are then split 80/20. All splits are patient-disjoint.
+All three partitions keep only images with at least one positive among the 8
+labels (the survey's rule; frontal and lateral views), built by
+`python -m intuitions.prepare_chexpert`:
+- train: per data seed, a label-balanced sample from the official training
+  split: for each of the 8 labels, 40 images positive for it that were not
+  already drawn (320 distinct images). Images with an uncertain (-1) value in
+  any of the 8 labels are excluded and blank labels count as negative.
+- val: per data seed, 10 images per label from the official validation split
+  (80 images), so train and val together match the case study's 50 per label.
+- test: the official test set with whole random patients removed until 434
+  images remain (the survey's 834 images minus the 400 training images), fixed
+  for every seed and source.
+The official splits come from disjoint patients.
 """
 
 import csv
@@ -38,16 +46,21 @@ PATHOLOGIES = sorted([
     "Support Devices",
 ])
 
-N_TRAIN_IMAGES = 250
-VAL_FRACTION = 0.2
-IMAGE_SIZE = 224
+N_TRAIN_PER_LABEL = 40
+N_VAL_PER_LABEL = 10
+N_TEST_IMAGES = 434
+TEST_HOLDOUT_SEED = 0
+IMAGE_SIZE = 320  # the resolution CheXpert models are conventionally trained at (Irvin et al. 2019)
 
 
 def load_benchmark_rows(csv_path=BENCHMARK_CSV):
+    """Eligible images with their official split ("train", "val" or "test")."""
     if not csv_path.exists():
         raise FileNotFoundError(f"{csv_path} not found; run `python -m intuitions.prepare_chexpert` first")
     with open(csv_path) as f:
         rows = list(csv.DictReader(f))
+    if rows and "split" not in rows[0]:
+        raise ValueError(f"{csv_path} predates the official-split design; rerun `python -m intuitions.prepare_chexpert`")
     for row in rows:
         row["rel_path"] = row["image_path"]
         row["image_path"] = str(DATA_ROOT / row["image_path"])
@@ -55,28 +68,43 @@ def load_benchmark_rows(csv_path=BENCHMARK_CSV):
     return rows
 
 
-def patient_split(rows, seed, n_train=N_TRAIN_IMAGES, val_frac=VAL_FRACTION):
-    rng = random.Random(seed)
+def group_by_patient(rows):
     patients = defaultdict(list)
     for row in rows:
         patients[row["patient"]].append(row)
+    return patients
 
-    patient_ids = sorted(patients)
-    rng.shuffle(patient_ids)
 
-    train_val_pids, train_val_count, test_rows = [], 0, []
-    for pid in patient_ids:
-        if train_val_count < n_train:
-            train_val_pids.append(pid)
-            train_val_count += len(patients[pid])
-        else:
-            test_rows.extend(patients[pid])
+def reduce_test_set(test_rows, n_images=N_TEST_IMAGES, seed=TEST_HOLDOUT_SEED):
+    """Remove whole random patients until exactly n_images remain."""
+    patients = group_by_patient(test_rows)
+    pids = sorted(patients)
+    random.Random(seed).shuffle(pids)
+    total, removed = len(test_rows), set()
+    for pid in pids:
+        if total == n_images:
+            break
+        if total - len(patients[pid]) >= n_images:
+            removed.add(pid)
+            total -= len(patients[pid])
+    if total != n_images:
+        raise ValueError(f"cannot reach exactly {n_images} test images by removing whole patients (got {total})")
+    return [r for r in test_rows if r["patient"] not in removed]
 
-    rng.shuffle(train_val_pids)
-    n_val_patients = max(1, int(len(train_val_pids) * val_frac))
-    val_rows = [r for pid in train_val_pids[:n_val_patients] for r in patients[pid]]
-    train_rows = [r for pid in train_val_pids[n_val_patients:] for r in patients[pid]]
-    return train_rows, val_rows, test_rows
+
+def sample_label_balanced(rows_pool, seed, per_label):
+    """For each label in turn, per_label random images positive for it and not drawn yet."""
+    rng = random.Random(seed)
+    rows = sorted(rows_pool, key=lambda r: r["rel_path"])
+    chosen, sample = set(), []
+    for k, label in enumerate(PATHOLOGIES):
+        candidates = [r for r in rows if r["_labels"][k] and r["rel_path"] not in chosen]
+        if len(candidates) < per_label:
+            raise ValueError(f"only {len(candidates)} undrawn images positive for {label}")
+        for r in rng.sample(candidates, per_label):
+            chosen.add(r["rel_path"])
+            sample.append(r)
+    return sample
 
 
 class CheXpertDataset(Dataset):
@@ -122,10 +150,19 @@ class CheXpert(Target):
     eval_loss = nn.BCEWithLogitsLoss()
 
     def __init__(self):
-        self.rows = load_benchmark_rows()
+        rows = load_benchmark_rows()
+        self.train_pool = [r for r in rows if r["split"] == "train"]
+        self.val_pool = [r for r in rows if r["split"] == "val"]
+        self.test = reduce_test_set([r for r in rows if r["split"] == "test"])
 
     def split(self, seed):
-        return patient_split(self.rows, seed)
+        if not self.train_pool:
+            raise FileNotFoundError(
+                f"no official training images in {BENCHMARK_CSV}; put the official train.csv at "
+                f"{DATA_ROOT / 'train.csv'} and rerun `python -m intuitions.prepare_chexpert`")
+        return (sample_label_balanced(self.train_pool, seed, N_TRAIN_PER_LABEL),
+                sample_label_balanced(self.val_pool, seed, N_VAL_PER_LABEL),
+                self.test)
 
     def make_dataset(self, items, hparams, train):
         return CheXpertDataset(items, get_transforms(train=train))
