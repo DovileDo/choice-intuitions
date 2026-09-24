@@ -36,7 +36,6 @@ if [ ${#SOURCES[@]} -eq 0 ]; then
 fi
 
 echo "Running on $(hostname): ${SOURCES[*]}"
-export TMPDIR=$HOME/tmp
 
 module load Miniconda3/25.5.1-1
 module load GCCcore/13.3.0
@@ -82,6 +81,11 @@ LOCAL="/scratch/$USER/chexpert-$SLURM_JOB_ID"
 mkdir -p "$LOCAL" 2>/dev/null || LOCAL="/tmp/chexpert-$SLURM_JOB_ID"
 mkdir -p "$LOCAL/benchmark/chexpert" "$SHARED" || exit 1
 export INTUITIONS_RUNS_DIR="$LOCAL"
+# Node-local temporary files too: every trial starts a new set of DataLoader workers, and
+# each one deletes a temporary directory as it exits. On NFS those deletions hit still-open
+# .nfs* files and print a screenful of 'Device or resource busy' at every trial.
+export TMPDIR="$LOCAL/tmp"
+mkdir -p "$TMPDIR" || exit 1
 echo "working in $LOCAL"
 
 # Resume: bring any previous run over before starting.
