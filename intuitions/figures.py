@@ -66,21 +66,21 @@ def ci95_half_width(values):
 def plot(per_seed, metric):
     """Call inside plt.rc_context(STYLE), which must also cover saving."""
     sources = list(per_seed)
-    x = np.arange(len(sources))
-    fig, ax = plt.subplots(figsize=(3.6, 3.2))
-    ax.grid(axis="y", color=GRID, linewidth=0.8)
+    y = np.arange(len(sources))[::-1]  # first source on top
+    fig, ax = plt.subplots(figsize=(3.6, 2.8))
+    ax.grid(axis="x", color=GRID, linewidth=0.8)
     ax.set_axisbelow(True)
     rng = np.random.default_rng(0)
-    for xi, source in zip(x, sources):
+    for yi, source in zip(y, sources):
         values = per_seed[source][1]
-        ax.scatter(xi + rng.uniform(-0.12, 0.12, size=len(values)), values, s=10, color=GREY, linewidths=0,
+        ax.scatter(values, yi + rng.uniform(-0.12, 0.12, size=len(values)), s=10, color=GREY, linewidths=0,
                    zorder=1)
-        ax.errorbar(xi, values.mean(), yerr=ci95_half_width(values), fmt="o", color=BLUE, markersize=6,
+        ax.errorbar(values.mean(), yi, xerr=ci95_half_width(values), fmt="o", color=BLUE, markersize=6,
                     elinewidth=1.5, capsize=4, capthick=1.5, zorder=3)
-    ax.set_xticks(x, [SOURCE_NAMES[s] for s in sources], rotation=45, ha="right", rotation_mode="anchor")
-    ax.set_xlim(-0.6, len(sources) - 0.4)
-    ax.set_ylabel(METRIC_NAMES.get(metric, metric))
-    ax.yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
+    ax.set_yticks(y, [SOURCE_NAMES[s] for s in sources])
+    ax.set_ylim(-0.6, len(sources) - 0.4)
+    ax.set_xlabel(METRIC_NAMES.get(metric, metric))
+    ax.xaxis.set_major_formatter(FormatStrFormatter("%.2f"))
     handles = [Line2D([], [], color=BLUE, marker="o", markersize=6, linewidth=1.5, label="Mean, 95% CI"),
                Line2D([], [], color=GREY, marker="o", markersize=3.5, linewidth=0, label="Single seed")]
     fig.legend(handles=handles, loc="upper center", ncol=2, bbox_to_anchor=(0.55, 1.02), handletextpad=0.4,
