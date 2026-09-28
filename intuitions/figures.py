@@ -5,7 +5,7 @@ and each seed as a dot, in the style of Fig. 2 of the survey (arXiv 2510.00902).
     python -m intuitions.figures                                   # CS-xray, macro AUC
     python -m intuitions.figures --target crc --metric balanced_accuracy
 
-Sources without results.json are left out. Writes runs/figures/<target>_<metric>.{pdf,png};
+Sources without results.json are left out. Writes figures/<target>_<metric>.{pdf,png} in the repository;
 at 3.6 in wide, include it at 0.42\\textwidth to match the text size of the survey's Fig. 2.
 """
 
@@ -20,7 +20,7 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import FormatStrFormatter
 from scipy import stats
 
-from intuitions.paths import RUNS_DIR
+from intuitions.paths import PROJECT_ROOT, RUNS_DIR
 
 # The survey's source order (ImageNet-1K, RadImageNet, Ecoset), then the benchmark's additions.
 SOURCE_NAMES = {"imagenet": "ImageNet-1K", "radimagenet": "RadImageNet", "ecoset_baseline": "Ecoset",
@@ -97,7 +97,7 @@ def main():
     per_seed = load_per_seed(args.target, args.metric)
     if len({tuple(seeds) for seeds, _ in per_seed.values()}) > 1:
         print("note: sources were evaluated on different seeds")
-    out = RUNS_DIR / "figures"
+    out = PROJECT_ROOT / "figures"
     out.mkdir(parents=True, exist_ok=True)
     with plt.rc_context(STYLE):  # fonts are resolved when saving, so the style must cover savefig too
         fig = plot(per_seed, args.metric)
