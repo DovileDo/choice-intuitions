@@ -6,3 +6,4 @@ pillow==12.3.0
 scikit-learn==1.9.1
 scikit-image==0.26.0
 optuna==5.0.0
+matplotlib==3.11.2
