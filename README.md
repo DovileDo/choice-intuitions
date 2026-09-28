@@ -93,7 +93,7 @@ python -m intuitions.verify_sources          # optional: confirm all source mode
 python -m intuitions.benchmark --target crc --source imagenet                 # search + final eval
 python -m intuitions.benchmark --target crc --source imagenet --phase search   # search only
 python -m intuitions.benchmark --target crc --source imagenet --phase eval     # final eval from best_hparams.json
-python -m intuitions.figures --target chexpert --metric macro_auc              # figures/chexpert_macro_auc.{pdf,png}
+python -m intuitions.figures                                                   # figures/results_macro_auc.{pdf,png}
 
 # all sources x targets (~4-7 days on one GB10 GPU; scratch takes the longest)
 for target in crc chexpert; do
