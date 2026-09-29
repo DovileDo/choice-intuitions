@@ -17,7 +17,7 @@ from pathlib import Path
 TIMESTAMP = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ")
 TRIAL_START = re.compile(r"trial (\d+): \{")
 TRIAL_SEED = re.compile(r"trial (\d+) seed (\d+):")
-EVAL_SEED = re.compile(r"Eval seed (\d+): val macro AUC")
+EVAL_SEED = re.compile(r"Eval seed (\d+): val macro[ -]AUC")  # older logs say "macro AUC"
 N_TRIALS = re.compile(r"'n_trials': (\d+)")
 N_EVAL_SEEDS = re.compile(r"'eval_seeds': \[([^\]]*)\]")
 

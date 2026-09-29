@@ -2,7 +2,7 @@
 Shared fine-tuning protocol.
 
 Phase 1: Optuna TPE search (60 trials); each trial trains on every search seed
-(0-4) and is scored by the mean best validation macro AUC. The randomly
+(0-4) and is scored by the mean best validation macro-AUC. The randomly
 initialised baseline gets its own search space and schedule (see REGIMES).
 Phase 2: retrain with the best hyperparameters on held-out eval seeds (5-9)
 and report test metrics as mean +/- std. Each eval seed is saved on its own
@@ -106,7 +106,7 @@ def _loader(dataset, batch_size, shuffle):
 def train_model(target, source, train_items, val_items, hparams, device, test_items=None):
     """
     Fine-tune `source` on `target`, keeping the epoch with the best validation
-    macro AUC (early stopping on it). If test_items is given, that epoch's model
+    macro-AUC (early stopping on it). If test_items is given, that epoch's model
     is evaluated on them.
     """
     set_seed(hparams["training_seed"])
@@ -159,7 +159,7 @@ def _objective(trial, target, source, device, seeds):
         val_auc = train_model(target, source, train_items, val_items,
                               {**hparams, "training_seed": seed}, device).best_val_auc
         val_aucs.append(val_auc)
-        log.info("trial %d seed %d: best val macro AUC %.4f", trial.number, seed, val_auc)
+        log.info("trial %d seed %d: best val macro-AUC %.4f", trial.number, seed, val_auc)
         trial.report(float(np.mean(val_aucs)), step)
         if trial.should_prune():
             raise optuna.TrialPruned()
@@ -183,7 +183,7 @@ def run_search(target, source, out_dir, device, n_trials=N_TRIALS, seeds=SEARCH_
     study.optimize(lambda trial: _objective(trial, target, source, device, seeds),
                    n_trials=max(n_trials - finished, 0))
 
-    log.info("Best trial %d: mean val macro AUC %.4f, params %s",
+    log.info("Best trial %d: mean val macro-AUC %.4f, params %s",
              study.best_trial.number, study.best_value, study.best_params)
     (out_dir / "best_hparams.json").write_text(json.dumps(study.best_params, indent=2))
     return study.best_params
@@ -248,7 +248,7 @@ def run_final_eval(target, source, out_dir, best_hparams, device, seeds=EVAL_SEE
                           test_items=test_items)
         pred_path = out_dir / "predictions" / f"seed_{seed}.npz"
         save_predictions(pred_path, target, test_items, run)
-        log.info("Eval seed %d: val macro AUC %.4f | test %s", seed, run.best_val_auc,
+        log.info("Eval seed %d: val macro-AUC %.4f | test %s", seed, run.best_val_auc,
                  ", ".join(f"{m} {run.test_metrics[m]:.4f}" for m in target.summary_metrics))
         records[seed] = {"seed": seed, "hparams": best_hparams, "n_train": len(train_items),
                          "n_val": len(val_items), "n_test": len(test_items), "val_auc": run.best_val_auc,

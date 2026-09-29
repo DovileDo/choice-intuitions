@@ -16,7 +16,7 @@ source-dataset choice with empirical outcomes:
   case study's subset size.
 
 Protocol (`intuitions/finetune.py`, written up in `paper/`): Optuna TPE search (60 trials),
-each trial scored by mean validation macro AUC over data seeds 0-4; the best configuration is
+each trial scored by mean validation macro-AUC over data seeds 0-4; the best configuration is
 retrained on held-out seeds 5-9 and test metrics are reported as mean ± std. The `scratch`
 baseline searches higher learning rates and weight decay and longer schedules, with longer
 warmup and early-stopping patience (`REGIMES` in `finetune.py`).
@@ -31,6 +31,8 @@ intuitions/                 benchmark package; run modules with `python -m` from
   finetune.py               shared protocol: Optuna search + final evaluation
   benchmark.py              CLI: fine-tune one source on one target
   figures.py                per-source test metric figure (mean, 95% CI, single seeds)
+  stats.py                  macro-AUC comparison of sources (paired bootstrap, Holm correction)
+  names.py                  display names of sources, targets and metrics
   prepare_chexpert.py       builds the CheXpert benchmark pool
   verify_sources.py         checks loading, input normalization and source-task accuracy
   radimagenet_probe.py      RadImageNet linear probe (head used by verify_sources)
@@ -94,6 +96,7 @@ python -m intuitions.benchmark --target crc --source imagenet                 # 
 python -m intuitions.benchmark --target crc --source imagenet --phase search   # search only
 python -m intuitions.benchmark --target crc --source imagenet --phase eval     # final eval from best_hparams.json
 python -m intuitions.figures                                                   # figures/results_macro_auc.{pdf,png}
+python -m intuitions.stats                                                     # figures/results_macro_auc_stats.txt
 
 # all sources x targets (~4-7 days on one GB10 GPU; scratch takes the longest)
 for target in crc chexpert; do

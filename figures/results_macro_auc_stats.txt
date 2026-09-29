@@ -1,0 +1,39 @@
+CS-tissue: test macro-AUC over 9 outputs; 4930 test images in 4930 resampling units; eval seeds 5-14 (10); 5000 bootstrap replicates
+  mean [95% t-interval over seeds]
+    ImageNet-1K    0.9897 [0.9862, 0.9931]
+    RadImageNet    0.9875 [0.9842, 0.9908]
+    Ecoset         0.9864 [0.9834, 0.9895]
+    Ecoset DVD-S   0.9938 [0.9924, 0.9952]
+    Random init.   0.9768 [0.9725, 0.9812]
+  pretrained models compared with each other: difference [95% bootstrap CI], p, Holm-corrected p over 6
+      ImageNet-1K - RadImageNet    +0.0022 [-0.0025, +0.0076]  p   0.378  Holm p   0.757
+      ImageNet-1K - Ecoset         +0.0032 [-0.0017, +0.0085]  p   0.202  Holm p   0.605
+   *  ImageNet-1K - Ecoset DVD-S   -0.0042 [-0.0078, -0.0009]  p   0.011  Holm p   0.045
+      RadImageNet - Ecoset         +0.0011 [-0.0018, +0.0042]  p   0.504  Holm p   0.757
+   *  RadImageNet - Ecoset DVD-S   -0.0064 [-0.0101, -0.0033]  p < 0.001  Holm p < 0.001
+   *       Ecoset - Ecoset DVD-S   -0.0074 [-0.0107, -0.0046]  p < 0.001  Holm p < 0.001
+  each pretrained model vs random init. (reference): difference [95% bootstrap CI], p, Holm-corrected p over 4
+   *  ImageNet-1K - Random init.   +0.0128 [+0.0070, +0.0185]  p < 0.001  Holm p < 0.001
+   *  RadImageNet - Random init.   +0.0106 [+0.0065, +0.0150]  p < 0.001  Holm p < 0.001
+   *       Ecoset - Random init.   +0.0096 [+0.0049, +0.0146]  p < 0.001  Holm p < 0.001
+   * Ecoset DVD-S - Random init.   +0.0170 [+0.0123, +0.0220]  p < 0.001  Holm p < 0.001
+
+CS-xray: test macro-AUC over 8 outputs; 434 test images in 333 resampling units; eval seeds 5-14 (10); 5000 bootstrap replicates
+  mean [95% t-interval over seeds]
+    ImageNet-1K    0.7245 [0.7081, 0.7410]
+    RadImageNet    0.7323 [0.7209, 0.7437]
+    Ecoset         0.7359 [0.7175, 0.7544]
+    Ecoset DVD-S   0.7464 [0.7356, 0.7571]
+    Random init.   0.7170 [0.7022, 0.7318]
+  pretrained models compared with each other: difference [95% bootstrap CI], p, Holm-corrected p over 6
+      ImageNet-1K - RadImageNet    -0.0078 [-0.0235, +0.0072]  p   0.330  Holm p   0.823
+      ImageNet-1K - Ecoset         -0.0114 [-0.0313, +0.0090]  p   0.274  Holm p   0.823
+   *  ImageNet-1K - Ecoset DVD-S   -0.0218 [-0.0358, -0.0072]  p   0.007  Holm p   0.041
+      RadImageNet - Ecoset         -0.0036 [-0.0201, +0.0130]  p   0.662  Holm p   0.823
+      RadImageNet - Ecoset DVD-S   -0.0141 [-0.0265, -0.0015]  p   0.032  Holm p   0.158
+           Ecoset - Ecoset DVD-S   -0.0104 [-0.0261, +0.0046]  p   0.170  Holm p   0.680
+  each pretrained model vs random init. (reference): difference [95% bootstrap CI], p, Holm-corrected p over 4
+      ImageNet-1K - Random init.   +0.0075 [-0.0127, +0.0277]  p   0.450  Holm p   0.450
+      RadImageNet - Random init.   +0.0153 [-0.0037, +0.0332]  p   0.110  Holm p   0.330
+           Ecoset - Random init.   +0.0189 [-0.0072, +0.0446]  p   0.147  Holm p   0.330
+   * Ecoset DVD-S - Random init.   +0.0294 [+0.0096, +0.0498]  p   0.006  Holm p   0.024

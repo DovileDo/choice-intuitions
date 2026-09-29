@@ -3,8 +3,8 @@ Linear probe on frozen source features, on the fine-tuning benchmark's own CheXp
 
 For each evaluation seed it uses the same training, validation and test images as the
 fine-tuning runs, extracts frozen features from each source model, and fits one logistic
-regression per label. The regularisation strength is chosen on validation macro AUC, the
-criterion the fine-tuning search selects on, and test macro AUC is reported next to the
+regression per label. The regularisation strength is chosen on validation macro-AUC, the
+criterion the fine-tuning search selects on, and test macro-AUC is reported next to the
 fine-tuned result where runs/benchmark/chexpert/<source>/results.json exists.
 
     python -m intuitions.linear_probe
@@ -59,7 +59,7 @@ def fit_predict(x_train, y_train, x_eval, C):
 
 
 def probe_seed(target, features, split):
-    """Best C on validation macro AUC, and the test metrics at that C."""
+    """Best C on validation macro-AUC, and the test metrics at that C."""
     train, val, test = split
     x = lambda rows: np.stack([features[r["rel_path"]] for r in rows])
     y = lambda rows: np.array([r["_labels"] for r in rows])
@@ -103,7 +103,7 @@ def main():
         per_seed = {}
         for seed in args.seeds:
             per_seed[seed] = probe_seed(target, features, splits[seed])
-            log.info("%s seed %d: C %g | val macro AUC %.4f | test macro AUC %.4f", source, seed,
+            log.info("%s seed %d: C %g | val macro-AUC %.4f | test macro-AUC %.4f", source, seed,
                      per_seed[seed]["C"], per_seed[seed]["val_macro_auc"], per_seed[seed]["test"]["macro_auc"])
         aucs = [r["test"]["macro_auc"] for r in per_seed.values()]
         results[source] = {"per_seed": per_seed, "test_macro_auc": {"mean": float(np.mean(aucs)), "std": float(np.std(aucs))},

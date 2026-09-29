@@ -2,12 +2,12 @@
 Figure of the test metric per source, one panel per target: mean with a 95% t-interval over the
 eval seeds, and each seed as a dot, in the style of Fig. 2 of the survey (arXiv 2510.00902).
 
-    python -m intuitions.figures                                   # (a) CS-tissue, (b) CS-xray, macro AUC
+    python -m intuitions.figures                                   # (a) CS-tissue, (b) CS-xray, macro-AUC
     python -m intuitions.figures --targets crc starc9 --metric balanced_accuracy
 
 Rows follow the survey's source order and are shared by all panels; a source without results.json
 for a target is marked "pending". Writes figures/results_<metric>.{pdf,png} in the repository; at
-6 in wide, include it at 0.71\\textwidth to match the text size of the survey's Fig. 2.
+7.4 in wide, include it at 0.87\\textwidth to match the text size of the survey's Fig. 2.
 """
 
 import argparse
@@ -20,16 +20,10 @@ import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from matplotlib.transforms import blended_transform_factory
-from scipy import stats
 
+from intuitions.names import METRIC_NAMES, SOURCE_NAMES, TARGET_NAMES
 from intuitions.paths import PROJECT_ROOT, RUNS_DIR
-
-# The survey's source order (ImageNet-1K, RadImageNet, Ecoset), then the benchmark's additions.
-SOURCE_NAMES = {"imagenet": "ImageNet-1K", "radimagenet": "RadImageNet", "ecoset_baseline": "Ecoset",
-                "ecoset_dvd_s": "Ecoset DVD-S", "scratch": "Random init."}
-TARGET_NAMES = {"crc": "CS-tissue", "starc9": "CS-tissue (STARC-9)", "chexpert": "CS-xray"}
-METRIC_NAMES = {"macro_auc": "Test macro AUC", "balanced_accuracy": "Test balanced accuracy",
-                "macro_f1": "Test macro F1"}
+from intuitions.stats import ci95_half_width
 
 # From the survey's Fig. 2: Okabe-Ito blue and grey, black 0.8 pt frame, #e0e0e0 0.8 pt gridlines,
 # 11 pt Times-style serif (Liberation Serif has Times New Roman's metrics).
@@ -57,11 +51,6 @@ def load_per_seed(target, metric):
             r = json.loads(path.read_text())
             per_seed[source] = (r["eval_seeds"], np.array([s["test_metrics"][metric] for s in r["per_seed_results"]]))
     return per_seed
-
-
-def ci95_half_width(values):
-    n = len(values)
-    return stats.t.ppf(0.975, n - 1) * values.std(ddof=1) / np.sqrt(n)
 
 
 def plot(panels, metric):
@@ -93,8 +82,7 @@ def plot(panels, metric):
     axes[0][0].set_ylim(-0.6, len(sources) - 0.4)
     handles = [Line2D([], [], color=BLUE, marker="o", markersize=6, linewidth=1.5, label="Mean, 95% CI"),
                Line2D([], [], color=GREY, marker="o", markersize=3.5, linewidth=0, label="Single seed")]
-    fig.legend(handles=handles, loc="upper center", ncol=2, bbox_to_anchor=(0.55, 1.04), handletextpad=0.4,
-               columnspacing=1.5)
+    fig.legend(handles=handles, loc="center left", bbox_to_anchor=(0.91, 0.56), handletextpad=0.4)
     return fig
 
 
