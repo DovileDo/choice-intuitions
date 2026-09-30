@@ -128,6 +128,7 @@ runs/benchmark/<target>/<source>/
   best_hparams.json      best search configuration
   seeds/seed_<N>.json    eval seed N: hyperparameters, split sizes, test metrics, learning curve
   results.json           all finished eval seeds and their mean ± std summary
+  models/seed_<N>.pt     best-validation weights for eval seed N (load_source_model + load_state_dict)
   predictions/seed_<N>.npz  per-image test predictions for eval seed N: y_true, y_prob,
                          ids (image path relative to the dataset dir), groups (patient
                          for CheXpert; the patch itself for CRC), label_names

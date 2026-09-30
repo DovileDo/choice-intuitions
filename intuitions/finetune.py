@@ -51,6 +51,7 @@ class RunResult:
     test_metrics: Optional[dict] = None
     test_labels: Optional[np.ndarray] = None  # in test_items order
     test_probs: Optional[np.ndarray] = None
+    best_state: Optional[dict] = None  # best-validation weights, kept when test_items is given
 
 
 def suggest_hparams(trial, target, source):
@@ -144,6 +145,7 @@ def train_model(target, source, train_items, val_items, hparams, device, test_it
     result = RunResult(best_val_auc, history)
     if test_items is not None and best_state is not None:
         model.load_state_dict(best_state)
+        result.best_state = best_state
         test_loader = _loader(target.make_dataset(test_items, hparams, train=False), bs, shuffle=False)
         result.test_labels, result.test_probs, test_loss = target.predict(model, test_loader, device)
         result.test_metrics = {"loss": test_loss, **target.metrics(result.test_labels, result.test_probs)}
@@ -194,6 +196,14 @@ def save_predictions(path, target, test_items, run):
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, y_true=run.test_labels, y_prob=run.test_probs, ids=np.array(ids),
                         groups=np.array(groups), label_names=np.array(target.label_names))
+
+
+def save_model(path, state):
+    """Best-validation weights; reload with load_source_model(source, num_outputs, dropout) + load_state_dict."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    torch.save(state, tmp)
+    tmp.replace(path)
 
 
 def _write_json(path, obj):
@@ -248,11 +258,14 @@ def run_final_eval(target, source, out_dir, best_hparams, device, seeds=EVAL_SEE
                           test_items=test_items)
         pred_path = out_dir / "predictions" / f"seed_{seed}.npz"
         save_predictions(pred_path, target, test_items, run)
+        model_path = out_dir / "models" / f"seed_{seed}.pt"
+        save_model(model_path, run.best_state)
         log.info("Eval seed %d: val macro-AUC %.4f | test %s", seed, run.best_val_auc,
                  ", ".join(f"{m} {run.test_metrics[m]:.4f}" for m in target.summary_metrics))
         records[seed] = {"seed": seed, "hparams": best_hparams, "n_train": len(train_items),
                          "n_val": len(val_items), "n_test": len(test_items), "val_auc": run.best_val_auc,
                          "test_metrics": run.test_metrics, "predictions": str(pred_path.relative_to(out_dir)),
+                         "model": str(model_path.relative_to(out_dir)),
                          "history": run.history}
         _write_json(_seed_record_path(out_dir, seed), records[seed])
 
