@@ -1,0 +1,24 @@
+CS-xray test macro-AUC, averaged over the eight labels, per subgroup; 434 test images, 433 with demographics; eval seeds 5-14 (10); 5000 bootstrap replicates
+
+sex: female 171 images, male 262 images; gap = female - male
+  ImageNet-1K    female 0.736 [0.721, 0.751]   male 0.719 [0.699, 0.739]   gap +0.017 [-0.020, +0.054]
+  RadImageNet    female 0.734 [0.719, 0.749]   male 0.734 [0.722, 0.745]   gap +0.001 [-0.037, +0.037]
+  Ecoset         female 0.741 [0.717, 0.764]   male 0.734 [0.717, 0.752]   gap +0.006 [-0.027, +0.040]
+  Ecoset DVD-S   female 0.751 [0.735, 0.766]   male 0.746 [0.736, 0.756]   gap +0.005 [-0.030, +0.040]
+  Random init.   female 0.725 [0.709, 0.740]   male 0.715 [0.699, 0.730]   gap +0.010 [-0.033, +0.051]
+
+age: <60 197 images, 60+ 236 images; gap = <60 - 60+
+  ImageNet-1K    <60 0.727 [0.707, 0.747]   60+ 0.709 [0.696, 0.722]   gap +0.018 [-0.018, +0.055]
+  RadImageNet    <60 0.744 [0.730, 0.758]   60+ 0.715 [0.704, 0.726]   gap +0.028 [-0.008, +0.066]
+  Ecoset         <60 0.742 [0.718, 0.767]   60+ 0.720 [0.704, 0.735]   gap +0.023 [-0.009, +0.056]
+  Ecoset DVD-S   <60 0.754 [0.743, 0.765]   60+ 0.729 [0.717, 0.741]   gap +0.025 [-0.010, +0.059]
+  Random init.   <60 0.728 [0.715, 0.741]   60+ 0.695 [0.677, 0.712]   gap +0.034 [-0.010, +0.078]
+
+race: White 236 images, non-White 155 images; gap = White - non-White
+  ImageNet-1K    White 0.718 [0.702, 0.733]   non-White 0.736 [0.712, 0.760]   gap -0.018 [-0.058, +0.023]
+  RadImageNet    White 0.725 [0.713, 0.736]   non-White 0.748 [0.732, 0.764]   gap -0.023 [-0.062, +0.017]
+  Ecoset         White 0.726 [0.710, 0.743]   non-White 0.754 [0.729, 0.779]   gap -0.028 [-0.065, +0.010]
+  Ecoset DVD-S   White 0.735 [0.724, 0.746]   non-White 0.764 [0.749, 0.780]   gap -0.029 [-0.066, +0.009]
+  Random init.   White 0.698 [0.683, 0.714]   non-White 0.745 [0.728, 0.762]   gap -0.047 [-0.093, +0.000]
+
+age: 1 of 5000 bootstrap replicates dropped (a label without positives or negatives in a subgroup)

@@ -1,0 +1,24 @@
+CS-xray test TPR at 80% specificity (threshold per label on the whole test set), averaged over the eight labels, per subgroup; 434 test images, 433 with demographics; eval seeds 5-14 (10); 5000 bootstrap replicates
+
+sex: female 171 images, male 262 images; gap = female - male
+  ImageNet-1K    female 0.552 [0.522, 0.581]   male 0.494 [0.467, 0.522]   gap +0.057 [-0.004, +0.116]
+  RadImageNet    female 0.552 [0.519, 0.585]   male 0.504 [0.492, 0.517]   gap +0.048 [-0.017, +0.112]
+  Ecoset         female 0.556 [0.520, 0.591]   male 0.521 [0.491, 0.551]   gap +0.035 [-0.016, +0.084]
+  Ecoset DVD-S   female 0.557 [0.529, 0.586]   male 0.543 [0.531, 0.554]   gap +0.014 [-0.038, +0.072]
+  Random init.   female 0.550 [0.519, 0.580]   male 0.468 [0.445, 0.490]   gap +0.082 [+0.005, +0.150]
+
+age: <60 197 images, 60+ 236 images; gap = <60 - 60+
+  ImageNet-1K    <60 0.463 [0.434, 0.491]   60+ 0.542 [0.520, 0.564]   gap -0.080 [-0.145, -0.016]
+  RadImageNet    <60 0.492 [0.476, 0.508]   60+ 0.535 [0.512, 0.558]   gap -0.043 [-0.114, +0.024]
+  Ecoset         <60 0.502 [0.463, 0.541]   60+ 0.546 [0.518, 0.575]   gap -0.044 [-0.100, +0.015]
+  Ecoset DVD-S   <60 0.513 [0.497, 0.528]   60+ 0.559 [0.538, 0.579]   gap -0.046 [-0.107, +0.020]
+  Random init.   <60 0.469 [0.451, 0.487]   60+ 0.512 [0.480, 0.543]   gap -0.043 [-0.119, +0.042]
+
+race: White 236 images, non-White 155 images; gap = White - non-White
+  ImageNet-1K    White 0.518 [0.496, 0.540]   non-White 0.498 [0.468, 0.527]   gap +0.020 [-0.043, +0.088]
+  RadImageNet    White 0.519 [0.503, 0.536]   non-White 0.508 [0.484, 0.533]   gap +0.011 [-0.056, +0.084]
+  Ecoset         White 0.530 [0.503, 0.556]   non-White 0.527 [0.492, 0.562]   gap +0.003 [-0.053, +0.060]
+  Ecoset DVD-S   White 0.541 [0.525, 0.557]   non-White 0.540 [0.514, 0.565]   gap +0.001 [-0.063, +0.058]
+  Random init.   White 0.477 [0.454, 0.501]   non-White 0.504 [0.468, 0.541]   gap -0.027 [-0.108, +0.057]
+
+age: 1 of 5000 bootstrap replicates dropped (a label without positives or negatives in a subgroup)

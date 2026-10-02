@@ -2,12 +2,16 @@
 
 Benchmark of how ResNet-50 source models pretrained on **ImageNet**, **RadImageNet** and
 **Ecoset** (DVD baseline and DVD-S, Lu et al. 2026) transfer to two small medical imaging
-targets, against training from scratch, used to compare practitioners' intuitions about
+tasks, against training from scratch, used to compare practitioners' intuitions about
 source-dataset choice with empirical outcomes:
 
 - **CS-tissue (`crc`)**: 9-class colorectal tissue classification. 250 patches/class from
   NCT-CRC-HE-100K for train/val (80/20); test is CRC-VAL-HE-7K minus 250 random patches
   per class (4,930 patches), fixed for every seed.
+- **CS-tissue on STARC-9 (`starc9`)**: the same task, budget and recipe on STARC-9
+  (Subramanian et al. 2025), with all three partitions patient-disjoint: per seed 200
+  tiles/class from the STARC-9 training set and 50/class from STANFORD-CRC-HE-VAL-SMALL; test
+  is a fixed class-balanced 4,930 tiles from STANFORD-CRC-HE-VAL-LARGE (50 slides).
 - **CS-xray (`chexpert`)**: 8-pathology multi-label chest X-ray classification. Per seed,
   label-balanced samples from the official splits: 40 images/label from train (320 images,
   those with an uncertain target label excluded) and 10 images/label from val (80 images);
@@ -27,11 +31,17 @@ warmup and early-stopping patience (`REGIMES` in `finetune.py`).
 intuitions/                 benchmark package; run modules with `python -m` from the repo root
   paths.py                  data, model and output locations
   source_models.py          the four source models, each with its own input normalization
-  targets/                  target tasks: crc.py, chexpert.py
+  targets/                  target tasks: crc.py, starc9.py, chexpert.py
   finetune.py               shared protocol: Optuna search + final evaluation
   benchmark.py              CLI: fine-tune one source on one target
+  progress.py               elapsed time and remaining-time estimate of running benchmarks
+  linear_probe.py           linear probe on frozen features, on the CheXpert benchmark splits
   figures.py                per-source test metric figure (mean, 95% CI, single seeds)
   stats.py                  macro-AUC comparison of sources (paired bootstrap, Holm correction)
+  shift.py                  CS-tissue robustness: corruptions and external H&E sets
+  shift_xray.py             CS-xray robustness: ChestX-ray14 and PadChest (HPC), saves predictions
+  subgroups.py              CS-xray TPR or macro-AUC per sex, age and race subgroup
+  fairness.py               fairness of sources as in MEDFAIR (Friedman + Nemenyi, CD diagrams)
   names.py                  display names of sources, targets and metrics
   prepare_chexpert.py       builds the CheXpert benchmark pool
   verify_sources.py         checks loading, input normalization and source-task accuracy
@@ -57,10 +67,28 @@ Expected data layout:
 ```
 ~/data/pathology/train/<CLASS>/*.tif     NCT-CRC-HE-100K (ADI BACK DEB LYM MUC MUS NORM STR TUM)
 ~/data/pathology/test/<CLASS>/*.tif      CRC-VAL-HE-7K
+~/data/STARC-9/train/<CLASS>/*.png       STARC-9 training set (ADI BLD FCT LYM MUC MUS NCS NOR TUM)
+~/data/STARC-9/val_small/<CLASS>/*.png   STANFORD-CRC-HE-VAL-SMALL
+~/data/STARC-9/val_large/<CLASS>/*.png   STANFORD-CRC-HE-VAL-LARGE
 ~/data/CheXpert/{train,val,test}/        official splits (train/ may hold only the sampled images)
 ~/data/CheXpert/train.csv, {val,test}_labels.csv
 ~/data/ecoset/test_data/<id>_<class>/    Ecoset test split (verify_sources only)
 ~/data/radiology_ai/                     RadImageNet + RadiologyAI_{train,val,test}.csv (probe only)
+```
+
+STARC-9 ([Hugging Face](https://huggingface.co/datasets/Path2AI/STARC-9), CC BY 4.0, ~84 GB),
+at the pinned revision the benchmark was built on; the zips nest their class folders differently:
+
+```bash
+BASE=https://huggingface.co/datasets/Path2AI/STARC-9/resolve/06e80900204d099b2f0409772f94baf1687f754f
+mkdir -p ~/data/STARC-9/raw && cd ~/data/STARC-9/raw
+for c in ADI BLD FCT LYM MUC MUS NCS NOR TUM; do
+  curl -LO $BASE/Training_data_normalized/$c.zip && unzip -q $c.zip -d ../train
+done
+curl -LO $BASE/Validation_data/STANFORD-CRC-HE-VAL-SMALL-NORMALIZED.zip
+curl -LO $BASE/Validation_data/STANFORD-CRC-HE-VAL-LARGE-NORMALIZED.zip
+unzip -q STANFORD-CRC-HE-VAL-SMALL-NORMALIZED.zip -d .. && mv ../STANFORD-CRC-HE-VAL-SMALL ../val_small
+unzip -q STANFORD-CRC-HE-VAL-LARGE-NORMALIZED.zip -d .. && mv ../NORMALIZED ../val_large
 ```
 
 Source models (`--source`); every model takes RGB tensors in [0, 1] and applies its own
@@ -97,9 +125,15 @@ python -m intuitions.benchmark --target crc --source imagenet --phase search   #
 python -m intuitions.benchmark --target crc --source imagenet --phase eval     # final eval from best_hparams.json
 python -m intuitions.figures                                                   # figures/results_macro_auc.{pdf,png}
 python -m intuitions.stats                                                     # figures/results_macro_auc_stats.txt
+python -m intuitions.shift                                                     # runs/shift/crc/per_model.json
+python -m intuitions.subgroups                                                 # figures/results_subgroups_tpr.txt
 
-# all sources x targets (~4-7 days on one GB10 GPU; scratch takes the longest)
-for target in crc chexpert; do
+# CS-xray on ChestX-ray14 and PadChest, on the HPC where they are; then the fairness comparison
+sbatch scripts/run_shift_xray.sh                                               # runs/shift/chexpert/
+python -m intuitions.fairness                                                  # figures/results_fairness{.txt,_cd.pdf}
+
+# all sources x targets (several days per target on one GB10 GPU; scratch takes the longest)
+for target in crc starc9 chexpert; do
   for source in imagenet radimagenet ecoset_baseline ecoset_dvd_s scratch; do
     python -m intuitions.benchmark --target "$target" --source "$source"
   done
@@ -131,7 +165,12 @@ runs/benchmark/<target>/<source>/
   models/seed_<N>.pt     best-validation weights for eval seed N (load_source_model + load_state_dict)
   predictions/seed_<N>.npz  per-image test predictions for eval seed N: y_true, y_prob,
                          ids (image path relative to the dataset dir), groups (patient
-                         for CheXpert; the patch itself for CRC), label_names
+                         for CheXpert; the patch itself for CRC and STARC-9), label_names
+runs/shift/crc/per_model.json        CS-tissue macro-AUC per model on every shifted set
+runs/shift/chexpert/
+  per_model.json         CS-xray macro-AUC per model on ChestX-ray14 and PadChest
+  examples.png           example images per dataset, to check the conversion
+  predictions/           <dataset>_labels.npz (labels, sex, age) and <source>/seed_<N>_<dataset>.npy
 runs/source_checks/      verify_sources.{log,json}, radimagenet_probe/
 runs/ecoset_pretraining/ checkpoints and log.txt from ecoset_pretraining/
 ```
