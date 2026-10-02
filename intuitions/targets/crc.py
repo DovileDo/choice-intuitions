@@ -160,7 +160,7 @@ class CRC(Target):
             "macro_auc": float(macro_auc),
             "per_class_accuracy": {
                 cls: float((y_pred[y_true == i] == i).mean()) if (y_true == i).any() else 0.0
-                for i, cls in enumerate(CLASSES)
+                for i, cls in enumerate(self.label_names)
             },
-            "confusion_matrix": confusion_matrix(y_true, y_pred, labels=range(len(CLASSES))).tolist(),
+            "confusion_matrix": confusion_matrix(y_true, y_pred, labels=range(len(self.label_names))).tolist(),
         }

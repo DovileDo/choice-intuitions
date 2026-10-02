@@ -1,5 +1,7 @@
 import os
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -10,9 +12,12 @@ from intuitions.targets import crc
 from intuitions.targets.chexpert import BENCHMARK_CSV, IMAGE_SIZE, PATHOLOGIES, CheXpert, sample_label_balanced
 from intuitions.targets.chexpert import get_transforms as chexpert_transforms
 from intuitions.targets.crc import CRC, CLASSES, HEDStainAugmentation
+from intuitions.targets import starc9
+from intuitions.targets.starc9 import STARC9
 
 HAS_CRC = (crc.DATA_ROOT / "train").is_dir() and (crc.DATA_ROOT / "test").is_dir()
 HAS_CHEXPERT = BENCHMARK_CSV.exists()
+HAS_STARC9 = all(os.path.isdir(d) for d in (starc9.TRAIN_DIR, starc9.VAL_DIR, starc9.TEST_DIR))
 
 
 class TestStainAugmentation(unittest.TestCase):
@@ -57,6 +62,74 @@ class TestCRC(unittest.TestCase):
         img = Image.open(path).convert("RGB")
         for train in (True, False):
             x = crc.get_transforms(stain_aug=True, train=train)(img)
+            self.assertEqual(tuple(x.shape), (3, 224, 224))
+            self.assertGreaterEqual(x.min().item(), 0.0)
+            self.assertLessEqual(x.max().item(), 1.0)
+
+
+class TestSTARC9Sampling(unittest.TestCase):
+    """Sampling logic on a fake directory tree, so it runs without the data."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dirs = {}
+        for split, n in (("train", 300), ("val_small", 100), ("val_large", 600)):
+            self.dirs[split] = os.path.join(self.tmp.name, split)
+            for cls in starc9.CLASSES:
+                d = Path(self.dirs[split], cls)
+                d.mkdir(parents=True)
+                (d / "Thumbs.db").touch()
+                for i in range(n):
+                    (d / f"{cls}_{i:04d}.png").touch()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_train_and_val_come_from_their_own_sets_in_crc_proportions(self):
+        train, val = starc9.sample_train_val(5, self.dirs["train"], self.dirs["val_small"])
+        self.assertEqual((len(train), len(val)), (1800, 450))
+        self.assertTrue(all(f.startswith(self.dirs["train"]) for f, _ in train))
+        self.assertTrue(all(f.startswith(self.dirs["val_small"]) for f, _ in val))
+        for idx in range(len(starc9.CLASSES)):
+            self.assertEqual(sum(label == idx for _, label in train), 200)
+            self.assertEqual(sum(label == idx for _, label in val), 50)
+        self.assertEqual(train, starc9.sample_train_val(5, self.dirs["train"], self.dirs["val_small"])[0])
+        self.assertNotEqual(train, starc9.sample_train_val(6, self.dirs["train"], self.dirs["val_small"])[0])
+
+    def test_test_set_is_fixed_class_balanced_and_sums_to_the_survey_size(self):
+        test = starc9.list_test_files(self.dirs["val_large"])
+        self.assertEqual(len(test), 4930)
+        self.assertEqual(1800 + 450 + len(test), 7180)
+        self.assertEqual(len({f for f, _ in test}), len(test))
+        counts = sorted(sum(label == idx for _, label in test) for idx in range(len(starc9.CLASSES)))
+        self.assertEqual(counts, [547] * 2 + [548] * 7)
+        self.assertTrue(all(f.endswith(".png") for f, _ in test))
+        self.assertEqual(test, starc9.list_test_files(self.dirs["val_large"]))
+
+
+class TestTissueMetrics(unittest.TestCase):
+    def test_per_class_metrics_use_each_targets_own_classes(self):
+        rng = np.random.default_rng(0)
+        for target in (CRC(), STARC9()):
+            y_true = np.arange(90) % 9
+            y_prob = rng.dirichlet(np.ones(9), size=90)
+            metrics = target.metrics(y_true, y_prob)
+            self.assertEqual(list(metrics["per_class_accuracy"]), list(target.label_names))
+            self.assertEqual(np.array(metrics["confusion_matrix"]).shape, (9, 9))
+
+
+@unittest.skipUnless(HAS_STARC9, "STARC-9 data not found")
+class TestSTARC9(unittest.TestCase):
+    def test_split_sizes_on_the_real_data(self):
+        train, val, test = STARC9().split(seed=5)
+        self.assertEqual((len(train), len(val), len(test)), (1800, 450, 4930))
+
+    def test_transforms_return_unit_range_tensors(self):
+        path, _ = STARC9().split(seed=0)[0][0]
+        img = Image.open(path).convert("RGB")
+        self.assertEqual(img.size, (256, 256))
+        for train in (True, False):
+            x = starc9.get_transforms(stain_aug=True, train=train)(img)
             self.assertEqual(tuple(x.shape), (3, 224, 224))
             self.assertGreaterEqual(x.min().item(), 0.0)
             self.assertLessEqual(x.max().item(), 1.0)
